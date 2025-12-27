@@ -22,37 +22,38 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 新增：安装 Python 3.10（Chaquopy 当前默认版本）
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-          cache: 'pip'  # 可选：缓存 pip 依赖，加速后续
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build Debug APK
+      - name: Build Debug APKs (all ABIs)
         run: ./gradlew assembleDebug
 
-      - name: Build Release APK (unsigned)
+      - name: Build Release APKs (unsigned, all ABIs)
         run: ./gradlew assembleRelease
 
       - name: Build Release AAB (unsigned)
         run: ./gradlew bundleRelease
 
-      - name: Upload Debug APK
+      # 上传所有 Debug APK（按 ABI 分开）
+      - name: Upload Debug APKs
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug.apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: debug-apks
+          path: app/build/outputs/apk/debug/*.apk
 
-      - name: Upload Release APK (unsigned)
+      # 上传所有 Release APK（未签名）
+      - name: Upload Release APKs (unsigned)
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-unsigned.apk
-          path: app/build/outputs/apk/release/app-release-unsigned.apk
+          name: release-apks-unsigned
+          path: app/build/outputs/apk/release/*.apk
 
+      # 上传 AAB（通常只有一个）
       - name: Upload Release AAB (unsigned)
         uses: actions/upload-artifact@v4
         with:
