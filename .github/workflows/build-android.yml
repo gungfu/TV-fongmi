@@ -1,4 +1,4 @@
-name: Build Android App
+name: Build Android App (Mobile Only)
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-mobile:
     runs-on: ubuntu-latest
 
     steps:
@@ -22,6 +22,7 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      # Chaquopy 需要 Python 3.10
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
         with:
@@ -30,32 +31,45 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
-      - name: Build Debug APKs (all ABIs)
-        run: ./gradlew assembleDebug
+      # ==================== 签名准备 ====================
+      - name: Decode Keystore
+        run: echo "${{ secrets.SIGNING_KEY }}" | base64 -d > keystore.jks
 
-      - name: Build Release APKs (unsigned, all ABIs)
-        run: ./gradlew assembleRelease
+      # ==================== 只构建 mobile 变体的 Release 并签名 ====================
+      - name: Build and Sign Mobile Release APKs
+        run: |
+          ./gradlew mobileArm64_v8aRelease mobileArmeabi_v7aRelease \
+            -Pandroid.injected.signing.store.file=$(pwd)/keystore.jks \
+            -Pandroid.injected.signing.store.password=${{ secrets.KEY_STORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
 
-      - name: Build Release AAB (unsigned)
-        run: ./gradlew bundleRelease
+      # ==================== 只构建 mobile 变体的 Release AAB（未签名，用于上传 Google Play） ====================
+      - name: Build Mobile Release AAB
+        run: ./gradlew mobileBundleRelease
 
-      # 上传所有 Debug APK（按 ABI 分开）
-      - name: Upload Debug APKs
+      # ==================== 上传已签名的 mobile APK ====================
+      - name: Upload Signed Mobile APKs
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apks
-          path: app/build/outputs/apk/debug/*.apk
+          name: mobile-signed-apks
+          path: |
+            app/build/outputs/apk/mobileArm64_v8a/release/mobile-arm64_v8a.apk
+            app/build/outputs/apk/mobileArmeabi_v7a/release/mobile-armeabi_v7a.apk
+          if-no-files-found: error
 
-      # 上传所有 Release APK（未签名）
-      - name: Upload Release APKs (unsigned)
+      # ==================== 上传 mobile AAB（未签名） ====================
+      - name: Upload Mobile AAB (unsigned)
         uses: actions/upload-artifact@v4
         with:
-          name: release-apks-unsigned
-          path: app/build/outputs/apk/release/*.apk
+          name: mobile-release.aab
+          path: app/build/outputs/bundle/mobileRelease/mobile-release.aab
+          if-no-files-found: error
 
-      # 上传 AAB（通常只有一个）
-      - name: Upload Release AAB (unsigned)
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release.aab
-          path: app/build/outputs/bundle/release/app-release.aab
+      # ==================== 可选：列出生成的产物（方便调试） ====================
+      # - name: List generated files
+      #   run: |
+      #     echo "=== Signed Mobile APKs ==="
+      #     find app/build/outputs/apk/mobile* -name "*.apk"
+      #     echo "=== Mobile AAB ==="
+      #     find app/build/outputs/bundle -name "mobile-release.aab"
