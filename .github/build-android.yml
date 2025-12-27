@@ -2,10 +2,10 @@ name: Build Android App
 
 on:
   push:
-    branches: [ main ]
+    branches: [ release ]   # 修改为主分支 release
   pull_request:
-    branches: [ main ]
-  workflow_dispatch:  # 支持手动触发
+    branches: [ release ]   # PR 目标分支也改为 release
+  workflow_dispatch:        # 支持手动触发
 
 jobs:
   build:
@@ -20,10 +20,10 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: gradle  # 自动缓存 Gradle 依赖，加速后续构建
+          cache: gradle  # 自动缓存 Gradle 依赖，加速构建
 
       - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+        run: chmod +x ./gradlew
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug
